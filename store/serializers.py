@@ -1,6 +1,8 @@
 
 from rest_framework import serializers
 from django.contrib.auth import get_user_model
+from django.core.exceptions import ValidationError as DjangoValidationError
+from .validators import validate_isbn
 
 from .models import (
     Category,
@@ -29,11 +31,25 @@ class CategorySerializer(serializers.ModelSerializer):
         fields = '__all__'
 
     def validate_name(self, value):
-        if not value.strip():
+
+        value = value.strip()
+
+        if not value:
             raise serializers.ValidationError(
                 "Category name cannot be empty."
             )
-        return value.strip()
+
+        queryset = Category.objects.filter(name__iexact=value)
+
+        if self.instance:
+            queryset = queryset.exclude(pk=self.instance.pk)
+
+        if queryset.exists():
+            raise serializers.ValidationError(
+                "A category with this name already exists."
+            )
+
+        return value
 
 
 # ==========================================
@@ -132,10 +148,11 @@ class BookSerializer(serializers.ModelSerializer):
         ]
 
     def validate_isbn(self, value):
-        if not value.isdigit() or len(value) not in (10, 13):
-            raise serializers.ValidationError(
-                "ISBN must contain exactly 10 or 13 digits."
-            )
+        try:
+            validate_isbn(value)
+        except DjangoValidationError as error:
+            raise serializers.ValidationError(error.messages)
+
         return value
 
     def validate_price(self, value):
@@ -163,6 +180,29 @@ class BookSerializer(serializers.ModelSerializer):
                 raise serializers.ValidationError({
                     'category_ids': 'At least one category is required.'
                 })
+
+        return data
+
+    def validate(self, data):
+        authors = data.get(
+            'authors',
+            self.instance.authors.all() if self.instance else []
+        )
+
+        categories = data.get(
+            'categories',
+            self.instance.categories.all() if self.instance else []
+        )
+
+        if not authors:
+            raise serializers.ValidationError({
+                'author_ids': 'At least one author is required.'
+            })
+
+        if not categories:
+            raise serializers.ValidationError({
+                'category_ids': 'At least one category is required.'
+            })
 
         return data
 
@@ -292,15 +332,28 @@ class CartItemSerializer(serializers.ModelSerializer):
         return value
 
     def validate(self, data):
-        book = data.get('book', self.instance.book if self.instance else None)
+
+        book = data.get(
+            'book',
+            self.instance.book if self.instance else None
+        )
+
         quantity = data.get(
             'quantity',
             self.instance.quantity if self.instance else 1
         )
 
+        if quantity < 1:
+            raise serializers.ValidationError({
+                'quantity': 'Quantity must be at least 1.'
+            })
+
         if book and quantity > book.stock_quantity:
             raise serializers.ValidationError({
-                'quantity': 'Requested quantity exceeds available stock.'
+                'quantity': (
+                    f'Only {book.stock_quantity} copies '
+                    f'of {book.title} are available.'
+                )
             })
 
         return data
@@ -404,19 +457,28 @@ class OrderItemSerializer(serializers.ModelSerializer):
         return value
 
     def validate(self, data):
-        book = data.get('book', self.instance.book if self.instance else None)
+
+        book = data.get(
+            'book',
+            self.instance.book if self.instance else None
+        )
+
         quantity = data.get(
             'quantity',
             self.instance.quantity if self.instance else 1
         )
 
+        if quantity < 1:
+            raise serializers.ValidationError({
+                'quantity': 'Order quantity must be at least 1.'
+            })
+
         if book and quantity > book.stock_quantity:
             raise serializers.ValidationError({
-                'quantity': 'Requested quantity exceeds available stock.'
+                'quantity': 'Insufficient book stock.'
             })
 
         return data
-
 
 # ==========================================
 # 10. REVIEW SERIALIZER

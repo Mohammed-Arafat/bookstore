@@ -9,7 +9,7 @@ from django.core.validators import (
 )
 from django.utils import timezone
 import uuid
-
+from .validators import validate_isbn
 
 # ==========================================
 # 1. CATEGORY MODEL
@@ -57,15 +57,10 @@ class Publisher(models.Model):
 class Book(models.Model):
 
     isbn = models.CharField(
-        max_length=13,
-        unique=True,
-        validators=[
-            RegexValidator(
-                regex=r'^(?:\d{10}|\d{13})$',
-                message="ISBN must contain 10 or 13 digits."
-            )
-        ]
-    )
+    max_length=13,
+    unique=True,
+    validators=[validate_isbn]
+)
 
     title = models.CharField(max_length=200)
 
@@ -106,6 +101,9 @@ class Book(models.Model):
     def clean(self):
         super().clean()
 
+        if self.isbn:
+            validate_isbn(self.isbn)
+
         if self.price is not None and self.price <= 0:
             raise ValidationError({
                 'price': 'Book price must be greater than zero.'
@@ -114,6 +112,11 @@ class Book(models.Model):
         if self.stock_quantity is not None and self.stock_quantity < 0:
             raise ValidationError({
                 'stock_quantity': 'Stock cannot be negative.'
+            })
+
+        if self.publication_date and self.publication_date > timezone.localdate():
+            raise ValidationError({
+                'publication_date': 'Publication date cannot be in the future.'
             })
 
     def __str__(self):
