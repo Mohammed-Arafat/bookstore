@@ -13,6 +13,7 @@ from rest_framework.permissions import (
     SAFE_METHODS
 )
 from rest_framework.response import Response
+from .filters import BookFilter
 
 from .models import (
     Category,
@@ -96,21 +97,41 @@ class PublisherViewSet(viewsets.ModelViewSet):
 # 4. BOOK VIEWSET
 # ==========================================
 
-class BookViewSet(viewsets.ModelViewSet):
 
-    queryset = Book.objects.prefetch_related(
+class BookViewSet(viewsets.ModelViewSet):
+    queryset = Book.objects.select_related(
+        'publisher'
+    ).prefetch_related(
         'authors',
         'categories'
-    ).select_related('publisher')
+    )
 
     serializer_class = BookSerializer
 
-    def get_permissions(self):
+    # Filtering
+    filterset_class = BookFilter
 
-        if self.action in ['create', 'update', 'partial_update', 'destroy']:
-            return [IsAdminUser()]
+    # Searching
+    search_fields = [
+        'title',
+        'isbn',
+        'description',
+        'authors__name',
+        'categories__name',
+        'publisher__name',
+    ]
 
-        return [IsAuthenticatedOrReadOnly()]
+    # Ordering
+    ordering_fields = [
+        'title',
+        'price',
+        'publication_date',
+        'created_at',
+    ]
+
+    ordering = ['-created_at']
+
+    # Preserve your existing get_permissions() method here.
 
 
 # ==========================================
