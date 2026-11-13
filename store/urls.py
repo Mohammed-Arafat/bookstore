@@ -1,4 +1,3 @@
-
 from rest_framework.routers import DefaultRouter
 
 from .views import (
@@ -16,15 +15,15 @@ from .views import (
 
 router = DefaultRouter()
 
-router.register('categories', CategoryViewSet)
-router.register('authors', AuthorViewSet)
-router.register('publishers', PublisherViewSet)
-router.register('books', BookViewSet)
-router.register('profiles', CustomerProfileViewSet)
-router.register('carts', CartViewSet)
-router.register('cart-items', CartItemViewSet)
-router.register('orders', OrderViewSet)
-router.register('order-items', OrderItemViewSet)
-router.register('reviews', ReviewViewSet)
+router.register('categories', CategoryViewSet, basename='category')
+router.register('authors', AuthorViewSet, basename='author')
+router.register('publishers', PublisherViewSet, basename='publisher')
+router.register('books', BookViewSet, basename='book')
+router.register('profiles', CustomerProfileViewSet, basename='profile')
+router.register('carts', CartViewSet, basename='cart')
+router.register('cart-items', CartItemViewSet, basename='cartitem')
+router.register('orders', OrderViewSet, basename='order')
+router.register('order-items', OrderItemViewSet, basename='orderitem')
+router.register('reviews', ReviewViewSet, basename='review')
 
 urlpatterns = router.urls
